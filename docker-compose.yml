@@ -1,0 +1,15 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chungamama
+      POSTGRES_PASSWORD: chungamama
+      POSTGRES_DB: chungamama
+    ports:
+      - "5433:5432"
+    volumes:
+      - chungamama_pgdata:/var/lib/postgresql/data
+
+volumes:
+  chungamama_pgdata:

@@ -1,0 +1,42 @@
+[
+  {"id": "birth-plan-1", "topic": "mpango-wa-kuzaa", "intent": "BIRTH_PLAN", "heading": "Jiandae Pamoja na Mkunga Wako", "source": "MOH216, p.2",
+   "text": "Jiandae Pamoja na Mkunga Wako: Tarehe inayotarajiwa ya kujifungua (EDD). Kituo cha afya utakachojifungulia, na jina lake. Nani atakayesaidia kukuzalisha (mkunga au daktari). Namba ya simu ya kituo cha afya, iwe tayari kwa dharura. Mtu wa kukusindikiza wakati wa kujifungua. Usafiri utakaotumia kufika kituoni, hasa ukiwa mbali. Kama utahitaji mchangiaji damu, mpange mapema. Mpango wa kifedha kwa gharama za kujifungua."},
+  {"id": "birth-plan-2", "topic": "mpango-wa-kuzaa", "intent": "BIRTH_PLAN", "heading": "Kwa Nini Hii Ni Muhimu", "source": "MOH216, p.2",
+   "text": "Kwa Nini Mpango wa Kuzaa Ni Muhimu: Mpango ulioandaliwa mapema hupunguza wasiwasi na kuchelewa wakati uchungu unapoanza. Familia inayojua mpango huu inaweza kukusaidia haraka zaidi katika dharura."},
+
+  {"id": "anc-1", "topic": "wiki-kwa-wiki", "intent": "GENERAL_PRENATAL", "heading": "Ziara Nane Zinazopendekezwa", "source": "MOH216, p.10",
+   "text": "Ratiba ya Ziara Nane za Kliniki (ANC): Ziara ya 1 kabla ya wiki 12. Ziara ya 2 wiki 20. Ziara ya 3 wiki 26. Ziara ya 4 wiki 30. Ziara ya 5 wiki 34. Ziara ya 6 wiki 36. Ziara ya 7 wiki 38. Ziara ya 8 wiki 40."},
+  {"id": "anc-2", "topic": "wiki-kwa-wiki", "intent": "GENERAL_PRENATAL", "heading": "Kila Ziara, Hivi Hufanyika", "source": "MOH216, p.10, p.13",
+   "text": "Kwenye kila ziara ya kliniki: Uzito na shinikizo la damu hupimwa na kurekodiwa. Unapewa dawa za IFAS (chuma na folic acid) za kutosha hadi ziara ijayo. Unapata dozi ya IPTp dhidi ya malaria kila baada ya wiki 4 kuanzia wiki 13. Msogeo wa mtoto na mapigo ya moyo wake huchunguzwa."},
+  {"id": "anc-3", "topic": "wiki-kwa-wiki", "intent": "GENERAL_PRENATAL", "heading": "Kabla ya Ziara ya Kwanza", "source": "MOH216, p.13",
+   "text": "Nenda kliniki mara tu unapojua kuwa una ujauzito, usisubiri dalili au wiki fulani. Beba kitabu cha MCH kila ziara na uonyeshe mhudumu wa afya."},
+
+  {"id": "nutrition-1", "topic": "lishe-na-mazoezi", "intent": "NUTRITION", "heading": "Makundi 10 ya Vyakula", "source": "MOH216, p.18",
+   "text": "Makundi 10 ya Vyakula wakati wa ujauzito na kunyonyesha: Nafaka na vyakula vya wanga. Mikunde na jamii ya maharage. Karanga na mbegu. Maziwa na bidhaa za maziwa. Mayai. Nyama, samaki, kuku, na wadudu wanaoliwa. Matunda na mboga za rangi ya chungwa au njano. Mboga za majani ya kijani kibichi. Mboga nyingine. Matunda mengine."},
+  {"id": "nutrition-2", "topic": "lishe-na-mazoezi", "intent": "NUTRITION", "heading": "Kanuni za Msingi", "source": "MOH216, p.13, p.18",
+   "text": "Kanuni za lishe wakati wa ujauzito: Kula angalau makundi 5 kati ya 10 kila siku. Kula chakula cha ziada kimoja kila siku. Kunywa maji glasi 8 (lita 2) kila siku. Chukua dawa za IFAS kila siku. Lala chini ya neti iliyowekwa dawa (LLIN) kila usiku. Fanya mazoezi mepesi mara kwa mara. Epuka kazi nzito, pumzika zaidi."},
+
+  {"id": "danger-pregnancy", "topic": "dalili-za-hatari", "intent": "EMERGENCY_SIGNS", "heading": "Dalili za Hatari Wakati wa Ujauzito", "source": "MOH216, p.14",
+   "text": "Dalili za hatari wakati wa ujauzito zinazohitaji uende kliniki mara moja: kutokwa na damu ukeni, maumivu makali ya kichwa, homa, kuonekana mweupe (pale), uvimbe wa uso na mikono, maji kutoka kabla ya uchungu kuanza, kifafa au kutetemeka mwilini, maumivu makali ya tumbo, kupungua au kukosekana kwa msogeo wa mtoto tumboni."},
+  {"id": "danger-postpartum-mother", "topic": "dalili-za-hatari", "intent": "EMERGENCY_SIGNS", "heading": "Dalili za Hatari kwa Mama Baada ya Kujifungua", "source": "MOH216, p.19",
+   "text": "Dalili za hatari kwa mama baada ya kujifungua: kutokwa na damu nyingi, homa, maumivu makali ya kichwa, majimaji yenye harufu mbaya ukeni, kifafa au kutetemeka mwilini."},
+  {"id": "danger-postpartum-baby", "topic": "dalili-za-hatari", "intent": "EMERGENCY_SIGNS", "heading": "Dalili za Hatari kwa Mtoto Mchanga", "source": "MOH216, p.19",
+   "text": "Dalili za hatari kwa mtoto mchanga: anaacha kunyonya vizuri, anapumua kwa shida au haraka sana, anahisi joto au baridi kupita kiasi, anapungua nguvu, mwili unageuka rangi ya njano hasa machoni na vitanga vya mikono na nyayo."},
+
+  {"id": "immunization-birth", "topic": "chanjo", "intent": "VACCINATION_SCHED", "heading": "Chanjo Wakati wa Kuzaliwa", "source": "MOH216, p.33",
+   "text": "Chanjo wakati wa kuzaliwa: BCG (kinga dhidi ya kifua kikuu) na chanjo ya kwanza ya Polio (OPV)."},
+  {"id": "immunization-weeks", "topic": "chanjo", "intent": "VACCINATION_SCHED", "heading": "Chanjo Wiki 6, 10, na 14", "source": "MOH216, p.33",
+   "text": "Chanjo za wiki 6, 10, na 14: Polio (OPV) kila ziara. Pentavalent (DPT-HepB-Hib). Chanjo ya Pneumococcal (PCV). Chanjo ya Rotavirus. IPV (chanjo ya polio ya sindano) wiki ya 14."},
+  {"id": "immunization-months", "topic": "chanjo", "intent": "VACCINATION_SCHED", "heading": "Chanjo Miezi 6, 9, na 18", "source": "MOH216, p.34",
+   "text": "Chanjo za miezi 6, 9, na 18: Miezi 6 MR (Surua na Rubella) endapo kuna mlipuko au mtoto ni HIV Exposed Infant. Miezi 9 MR dozi ya kawaida. Miezi 9 Chanjo ya Homa ya Manjano katika kaunti fulani. Miezi 18 MR dozi ya nyongeza."},
+
+  {"id": "father-pregnancy", "topic": "usaidizi-wa-baba", "intent": "GENERAL_PRENATAL", "heading": "Usaidizi wa Baba Wakati wa Ujauzito", "source": "MOH216, p.3",
+   "text": "Jinsi baba anavyoweza kusaidia wakati wa ujauzito: kumsaidia mke na kazi za nyumbani, kuhakikisha anakula vizuri na kuhudhuria kliniki mara 8, kumsindikiza kwenye kituo cha afya, kupima na kutibiwa magonjwa ya zinaa ikiwemo HIV, kupanga pamoja mpango wa kuzaa, kuzungumza kuhusu uzazi wa mpango."},
+  {"id": "father-postpartum", "topic": "usaidizi-wa-baba", "intent": "GENERAL_PRENATAL", "heading": "Usaidizi wa Baba Baada ya Kujifungua", "source": "MOH216, p.4",
+   "text": "Jinsi baba anavyoweza kusaidia baada ya kujifungua: wiki sita za kwanza ni muhimu zaidi, kumsaidia mama kupumzika na kupata usingizi, kushikilia na kumtunza mtoto ili mama apumzike, kumsindikiza mama kupata huduma ya baada ya kujifungua (PNC)."},
+
+  {"id": "mental-health-1", "topic": "afya-ya-akili", "intent": "MENTAL_HEALTH_DISTRESS", "heading": "Ni Kawaida Kuhisi Hivi", "source": "Derived guidance, not page-specific in MOH216",
+   "text": "Wanawake wengi hupitia mabadiliko ya hisia wakati wa ujauzito na baada ya kujifungua. Hii si udhaifu, ni sehemu ya mchakato wa mwili na maisha mapya. Kliniki hufanya uchunguzi wa afya ya akili katika ziara za baada ya kujifungua kama utaratibu wa kawaida."},
+  {"id": "mental-health-2", "topic": "afya-ya-akili", "intent": "MENTAL_HEALTH_DISTRESS", "heading": "Dalili za Kuangalia", "source": "Derived guidance, not page-specific in MOH216",
+   "text": "Dalili za afya ya akili za kuangalia: huzuni au uchovu unaoendelea kwa zaidi ya wiki mbili, ugumu wa kumhusiana na mtoto. Kama una mawazo ya kujidhuru, tafuta msaada mara moja kutoka kwa mfanyakazi wa afya au mtu unayemwamini."}
+]
