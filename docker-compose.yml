@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: chungamama
       POSTGRES_DB: chungamama
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - chungamama_pgdata:/var/lib/postgresql/data
 

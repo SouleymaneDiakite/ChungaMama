@@ -1,119 +1,178 @@
 # ChungaMama
 
-Digitizing Kenya's MOH Mother & Child Health Handbook into an interactive,
-voice-first assistant. Paper stays the primary record; this is the
-intelligent alerting and guidance layer on top of it.
+A bilingual (Swahili/English) maternal-health assistant built on Kenya's MOH
+Mother & Child Health Handbook (MOH216). Paper stays the primary record; this
+is the guidance and escalation layer on top of it.
+
+> **Prototype.** Not a substitute for medical care. Answers come from a small,
+> partly unverified knowledge base (see [Known limitations](#known-limitations)).
 
 ## Architecture
 
-- **backend/** — FastAPI + PostgreSQL (pgvector). Owns auth, patient
-  records, and growth/pregnancy data. Proxies conversational requests to
-  Mane's standalone ASR/NLU/RAG service rather than embedding it directly —
-  see `app/routers/assistant.py` for the API contract.
-- **frontend/** — Next.js + Tailwind. Public site (home, guide) + the
-  assistant chat UI + a login stub. Dashboard/staff views are the next
-  thing to build, role-gated separately from the mother-facing pages.
-- **docker-compose.yml** — local Postgres with the pgvector extension
-  pre-installed.
+```
+Browser (Next.js :3000)
+   │  POST /api/v1/assistant/chat   { messages, session_id }
+   ▼
+Backend (FastAPI :8000)  ── auth, patients, escalations (Postgres)
+   │  POST ASSISTANT_SERVICE_URL    { messages, session_id }
+   ▼
+Assistant service (rag_starter/service.py, FastAPI :9000)
+   │  retrieve (pgvector) → classify → generate (Ollama)
+   ▼
+{ intent, entities, risk_level, reply, escalate }
+```
+
+- **frontend/**: Next.js + Tailwind. Public site, handbook guide, assistant
+  chat, login/register, and a role-gated staff dashboard (`/dashboard`).
+  Swahili/English toggle via `lib/i18n.tsx`. Each browser tab gets its own
+  `session_id`, so conversations don't mix.
+- **backend/**: FastAPI + SQLAlchemy + Postgres. Owns auth (JWT, roles:
+  mother/chw/clinician/admin), patient records and escalations. The assistant
+  route is a thin proxy; when the service returns `escalate: true`, the
+  backend saves an `Escalation` row for CHW review.
+- **rag_starter/**: the assistant service (retrieval, rule-based
+  classification, local LLM, TTS). See [rag_starter/README.md](rag_starter/README.md).
+- **docker-compose.yml**: Postgres with pgvector, exposed on host port **5433**.
+
+The HTTP contract between backend and assistant service is the only coupling,
+so the retrieval, model, classifier or voice components can be swapped without
+touching the backend or frontend.
 
 ## Prerequisites
 
 - Python 3.10+
 - Node.js 18+
-- Docker (for local Postgres) — or point `DATABASE_URL` at any Postgres
-  instance with the `vector` extension available.
+- Docker (or any Postgres with the `vector` extension)
+- [Ollama](https://ollama.com) for local generation (the assistant service)
+- An NVIDIA GPU is strongly recommended for the assistant (see the
+  rag_starter README); CPU works but replies can take minutes.
 
-## Backend setup
+## Running everything locally
 
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env            # edit if your DB credentials differ
-```
+You need four things running. Use separate terminals.
 
-Start Postgres (from the repo root):
+**1. Postgres**
 ```bash
 docker compose up -d
 ```
 
-Create the tables (quick local-dev bootstrap — switch to Alembic
-migrations once the schema stabilizes):
+**2. Assistant service** (full setup in `rag_starter/README.md`)
 ```bash
-python create_tables.py
+cd rag_starter
+python -m venv venv && venv\Scripts\activate     # macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+ollama pull llama3.1
+cp .env.example .env
+python ingest.py            # once, loads the knowledge base
+uvicorn service:app --port 9000
 ```
 
-Run the API:
+**3. Backend**
 ```bash
+cd backend
+python -m venv venv && venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # then edit, see below
+python create_tables.py     # once
 uvicorn app.main:app --reload --port 8000
 ```
 
-Check it worked: open http://localhost:8000/docs — should show the
-interactive Swagger UI with 6 endpoints (auth register/login, patients
-CRUD, assistant chat, health).
-
-## Frontend setup
-
+**4. Frontend**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. API docs: http://localhost:8000/docs (backend) and
+http://localhost:9000/docs (assistant service). `GET :9000/health` should
+return 200.
 
-## Connecting Mane's assistant service
+### Environment
 
-The backend's `/api/v1/assistant/chat` endpoint proxies to whatever URL is
-set as `ASSISTANT_SERVICE_URL` in `backend/.env` (defaults to
-`http://localhost:9000/chat`). It expects that service to accept
-`{"messages": [...]}` and return
-`{"intent", "entities", "risk_level", "reply", "escalate"}` — the contract
-already agreed on so his thesis service stays independently deployable and
-separately attributable.
+`.env` files are git-ignored. Never commit them.
 
-Until his service is running, the assistant page will show a connection
-error when you try to send a message — that's expected, not a bug in this
-scaffold.
+| File | Variable | Notes |
+|---|---|---|
+| `backend/.env` | `DATABASE_URL` | `postgresql://chungamama:chungamama@localhost:5433/chungamama` (note port 5433) |
+| `backend/.env` | `SECRET_KEY` | Replace the placeholder |
+| `backend/.env` | `ASSISTANT_SERVICE_URL` | `http://127.0.0.1:9000/chat` (`127.0.0.1` avoids `localhost` resolving oddly on Windows) |
+| `rag_starter/.env` | `DATABASE_URL` | psycopg3 form: `postgresql+psycopg://chungamama:chungamama@localhost:5433/chungamama` |
+| frontend (optional) | `NEXT_PUBLIC_API_URL` | Defaults to `http://localhost:8000/api/v1/assistant/chat` |
 
-## What's stubbed vs. real
+**Gotcha:** an already-set shell `DATABASE_URL` takes precedence over `.env`
+(python-dotenv doesn't override it), and `uvicorn --reload` doesn't watch
+`.env`. If the service can't reach the database, check
+`echo $env:DATABASE_URL` (PowerShell) / `echo $DATABASE_URL` first, then
+restart the server.
 
-**Working end-to-end:** auth register/login (role-gated: mother/chw/clinician/admin), patient CRUD, the assistant proxy route (once Mane's service is up), the escalations pipeline — a high-risk assistant response is automatically persisted with an SBAR-style summary, and the CHW dashboard (`/dashboard`) lists and lets staff mark them reviewed. Access is enforced server-side via JWT + role check, not just hidden in the UI.
+## Status
 
-**Not yet built:** statistics/analytics view, phone OTP (currently email/password only — Supabase swap is the next real step there), and Alembic migrations (using direct `create_all()` for now, see the schema-change warning below).
+**Working end to end**
+- Register/login with role-based access enforced server-side (JWT)
+- Patient CRUD
+- Chat → backend → assistant service → grounded reply, in Swahili or English
+- Risk handling: high-risk replies are saved as escalations with an
+  SBAR-style summary; staff review them on `/dashboard`
+- Friendly bilingual fallback in the UI when the assistant is unreachable
+  (it also tells users to go to a clinic if urgent)
 
-## If you already have a running local database
+**Not built yet**
+- Voice input (ASR) and voice output in the UI. The ASR model has been
+  chosen (SunflowerASR) but is not wired in. `rag_starter/tts.py` exists but
+  has no endpoint yet.
+- Statistics/analytics view
+- Phone OTP login (email/password only)
+- Alembic migrations (`create_all()` for now)
+- Persistent chat memory (see limitations)
+- Automated retrieval/risk evaluation set
 
-`create_tables.py` uses SQLAlchemy's `create_all()`, which only creates
-tables that don't exist yet — it will **not** add new columns to a table
-you already created. If you were testing before this update, the `users`
-table is now missing the new `full_name` column and any queries touching
-it will fail. Easiest fix for local dev (not real data, so safe to wipe):
+## Known limitations
+
+- **Knowledge base is small** (18 Swahili chunks). The
+  `sex-during-pregnancy` chunk is flagged in its `source` field as needing
+  verification against the real MOH216 text or a midwife.
+- **Classifier is rule-based**: intent comes from the top retrieved chunk's
+  tag, risk is the highest across retrieved chunks, plus a self-harm keyword
+  override. It is a stand-in that can be replaced behind the same contract.
+- **Session memory is in-process** (`service.py`): it resets on restart and
+  grows without bound. Fine for a prototype, not for deployment.
+- **Generation speed is unverified on GPU.** The backend timeout is 180s
+  (a CPU-era workaround in `assistant.py`); lower it once GPU latency is
+  confirmed.
+- **TTS (gTTS)** needs internet and has a noticeable accent in Swahili.
+- Small local models can still drift from the retrieved sources. The prompt
+  restricts them, but this is not eliminated.
+
+## Security notes
+
+- Registration accepts an optional `role` for local testing, so anyone can
+  register as `admin`. Lock this down (invite-only or staff provisioning)
+  before any real deployment.
+- Replace `SECRET_KEY` and the default database credentials outside local dev.
+
+## If you already have a local database
+
+`create_tables.py` uses `create_all()`, which creates missing tables but does
+not add columns to existing ones. After schema changes, wipe the local dev DB:
 
 ```bash
-# Postgres, from the repo root
 docker compose down -v
 docker compose up -d
 cd backend && python create_tables.py
 ```
 
-## Adding the hero photo
+## Hero photo
 
-The homepage expects `frontend/public/hero-photo.jpg`. See
-`frontend/public/README_ADD_PHOTO_HERE.txt` for free, properly-licensed
-sources (Unsplash/Pexels) — the code gracefully hides the image slot if
-the file isn't present yet, so the build won't break without it.
+The homepage looks for `frontend/public/hero-photo.jpg`. See
+`frontend/public/README_ADD_PHOTO_HERE.txt` for licensed sources. The build
+works without it.
 
-**Security note:** registration currently accepts an optional `role` field for local testing convenience (so you can create a CHW account to see the dashboard). This must be locked down — admin-invite-only, or a separate staff-provisioning flow — before any real deployment. Right now anyone could register themselves as `admin`.
+## Next steps
 
-## Suggested next steps
-
-1. Get Mane's service running locally on port 9000 and confirm the full
-   chat flow works end to end.
-2. Swap email/password-only auth for Supabase (email + phone OTP), per
-   the agreed stack.
-3. Add the `escalations` table and wire the TODO in
-   `assistant.py` to actually persist high-risk cases for CHW review.
-4. Build the role-gated dashboard as a separate route group with its own
-   auth check.
+1. Confirm GPU generation speed, then lower the backend timeout.
+2. Evaluation set and script (retrieval hit rate, risk accuracy).
+3. Add and verify more knowledge-base content.
+4. Wire in `transcribe()` (SunflowerASR), an audio endpoint, and mic/play
+   buttons in the UI.
+5. Better Swahili TTS; phone OTP; migrations; lock down registration roles.

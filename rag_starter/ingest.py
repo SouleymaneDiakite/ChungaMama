@@ -25,17 +25,19 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres import PGEngine, PGVectorStore
 
+from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME, VECTOR_SIZE
+
 load_dotenv()
 
-DATABASE_URL = os.environ["DATABASE_URL"]
-TABLE_NAME = "moh216_chunks"
-
-# paraphrase-multilingual-MiniLM-L12-v2: supports 50+ languages including
-# Swahili, runs on CPU, ~470MB download (one-time, cached locally after).
-# Free — no API key, no per-call cost, since this runs entirely on your
-# own machine rather than calling a hosted embedding API.
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-VECTOR_SIZE = 384  # must match the embedding model's output dimension
+# EMBEDDING_MODEL and VECTOR_SIZE come from rag_core.py on purpose — that's
+# the ONLY place they're defined, so ingest.py (which builds the vectors)
+# and query.py/service.py (which search them) can never drift out of sync.
+# BAAI/bge-m3 is a retrieval-tuned multilingual model (1024-dim), not just
+# a general sentence-similarity one — it replaced the old MiniLM model
+# because retrieval was consistently failing to surface the correct
+# EMERGENCY_SIGNS chunk across real test queries. It's a bigger download
+# (~2.2GB, one-time) and slower per-embedding than MiniLM, but runs fine
+# on CPU for a dataset this small (17 chunks).
 
 
 def main():
@@ -48,9 +50,20 @@ def main():
 
     engine = PGEngine.from_connection_string(url=DATABASE_URL)
 
-    # Safe to call even if the table already exists from a previous run —
-    # it won't duplicate or error, just confirms the schema.
-    engine.init_vectorstore_table(table_name=TABLE_NAME, vector_size=VECTOR_SIZE)
+    # NOTE: this is NOT safe to call blindly if the table already exists —
+    # init_vectorstore_table does a plain CREATE TABLE under the hood, so a
+    # second run against an existing table raises DuplicateTableError
+    # rather than confirming the schema (an earlier version of this
+    # comment claimed otherwise; that was wrong). overwrite_existing=True
+    # drops and recreates it, which is exactly what you want here: you're
+    # switching embedding models (384-dim MiniLM -> 1024-dim bge-m3), so
+    # any rows from the old table are the wrong dimension anyway and
+    # cannot be reused regardless.
+    engine.init_vectorstore_table(
+        table_name=TABLE_NAME,
+        vector_size=VECTOR_SIZE,
+        overwrite_existing=True,
+    )
 
     store = PGVectorStore.create_sync(
         engine=engine,

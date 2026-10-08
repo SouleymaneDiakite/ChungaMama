@@ -130,6 +130,14 @@ export const ui = {
     thinking: { sw: "Inachakata\u2026", en: "Thinking\u2026" },
     disclaimer: { sw: "Kielelezo \u2014 si mbadala wa huduma ya afya.", en: "Prototype \u2014 not a substitute for medical care." },
     errorPrefix: { sw: "Hitilafu:", en: "Error:" },
+    // Shown when the assistant can't be reached or times out. The urgent-care
+    // line is deliberate: this is a maternal-health app, so "something broke"
+    // must never leave someone with a symptom thinking no answer means no
+    // problem.
+    unavailable: {
+      sw: "Samahani, msaidizi hapatikani kwa sasa. Tafadhali jaribu tena baada ya muda mfupi. Ikiwa unajisikia vibaya au ni dharura, nenda kliniki au hospitali iliyo karibu mara moja.",
+      en: "Sorry, the assistant is unavailable right now. Please try again in a moment. If you feel unwell or this is urgent, go to your nearest clinic or hospital right away.",
+    },
   },
   login: {
     title: { sw: "Ingia", en: "Log in" },

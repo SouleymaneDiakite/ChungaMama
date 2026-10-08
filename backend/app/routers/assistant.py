@@ -18,22 +18,49 @@ class AssistantMessage(BaseModel):
 
 class AssistantRequest(BaseModel):
     patient_id: str | None = None
+    # Identifies one conversation on the assistant service. Separate from
+    # patient_id on purpose: patient_id must be a real patients.id (it becomes
+    # a foreign key on escalations), while the frontend can send a random
+    # per-tab id for visitors who aren't linked to a patient record.
+    session_id: str | None = None
     messages: list[AssistantMessage]
 
 
 # This router is intentionally thin: ChungaMama owns patient records and
-# auth; Mane's conversational service (ASR/NLU/RAG) owns everything about
-# understanding and responding to the message. This keeps his thesis
-# artifact independently deployable and separately attributable, per the
-# API contract agreed on: {patient_context, message} -> {intent, entities,
-# risk_level, reply, escalate}.
+# auth; the assistant service (rag_starter/service.py) owns everything
+# about understanding and responding to the message. Keeping it behind
+# this HTTP boundary, rather than importing it directly, means whatever
+# runs behind ASSISTANT_SERVICE_URL can change — a different retrieval
+# setup, a different model, eventually a fine-tuned pipeline — without
+# this router ever needing to change. Contract: {messages} -> {intent,
+# entities, risk_level, reply, escalate}.
 @router.post("/chat")
 async def chat(payload: AssistantRequest, db: Session = Depends(get_db)):
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    # session_id is what keys conversation history (retrieved context,
+    # last answer language, risk level) on the assistant service side, so
+    # translation follow-ups ("say that in English") re-ground on the
+    # right patient's own prior turn. Without this, every request fell
+    # back to the service's default session key and ALL patients shared
+    # one conversation history — patient B's "translate that" could have
+    # regenerated patient A's answer. Falls back to "anonymous" only for
+    # a chat with no patient attached yet (e.g. a pre-registration demo).
+    #
+    # timeout=180.0 — confirmed via `ollama ps` that generation on this
+    # CPU-only machine genuinely runs that long under load; 90s was still
+    # too short and killed a request while Ollama was actively still
+    # computing (100% CPU, not stuck). This is real hardware latency, not
+    # a bug — it will drop sharply once generation runs on the GPU machine
+    # instead of CPU. Lower this back down once that happens; a long
+    # timeout here is a workaround for slow hardware, not a setting to
+    # keep forever.
+    async with httpx.AsyncClient(timeout=180.0) as client:
         try:
             resp = await client.post(
                 settings.ASSISTANT_SERVICE_URL,
-                json={"messages": [m.model_dump() for m in payload.messages]},
+                json={
+                    "messages": [m.model_dump() for m in payload.messages],
+                    "session_id": payload.session_id or payload.patient_id or "anonymous",
+                },
             )
             resp.raise_for_status()
         except httpx.HTTPError as e:

@@ -1,12 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage, ui, pick } from "@/lib/i18n";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1/assistant/chat";
+
+// One id per browser tab, sent with every request. The assistant service keys
+// its conversation memory (last retrieved sources, last answer language, the
+// previous question folded into retrieval) on this. Without it every visitor
+// landed in the same "anonymous" bucket, so one person's "say that in English"
+// could regenerate another person's answer, and one person's earlier question
+// leaked into the next person's retrieval. sessionStorage (not localStorage)
+// on purpose: a new tab is a new conversation, and nothing persists on shared
+// devices after the tab closes.
+function getSessionId(): string {
+  const fallback = () =>
+    `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    let id = sessionStorage.getItem("chungamama_session");
+    if (!id) {
+      id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : fallback();
+      sessionStorage.setItem("chungamama_session", id);
+    }
+    return id;
+  } catch {
+    return fallback(); // storage blocked: still unique for this page load
+  }
+}
 
 export default function AssistantPage() {
   const { lang } = useLanguage();
@@ -15,30 +38,33 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const sessionId = useRef<string | null>(null);
 
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
     const next = [...messages, { role: "user" as const, content: input }];
     setMessages(next);
     setInput("");
     setLoading(true);
 
+    if (!sessionId.current) sessionId.current = getSessionId();
+
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, session_id: sessionId.current }),
       });
       if (!res.ok) throw new Error(`Backend returned ${res.status}`);
       const result = await res.json();
       setMessages((m) => [...m, { role: "assistant", content: result.reply }]);
     } catch (e: any) {
+      // Technical detail goes to the console for you; the user sees a plain,
+      // bilingual message that also tells them what to do if it's urgent.
+      console.error("Assistant request failed:", e);
       setMessages((m) => [
         ...m,
-        {
-          role: "assistant",
-          content: `${pick(t.errorPrefix, lang)} ${e.message}`,
-        },
+        { role: "assistant", content: pick(t.unavailable, lang) },
       ]);
     } finally {
       setLoading(false);

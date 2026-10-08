@@ -21,11 +21,15 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres import PGEngine, PGVectorStore
 
+from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME
+
 load_dotenv()
 
-DATABASE_URL = os.environ["DATABASE_URL"]
-TABLE_NAME = "moh216_chunks"  # same table as ingest.py — one shared knowledge base
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# DATABASE_URL/EMBEDDING_MODEL/TABLE_NAME come from rag_core.py — same
+# reason as in ingest.py: this script embeds into the SAME table ingest.py
+# creates, so it must use the exact same embedding model (now BAAI/bge-m3)
+# or similarity search across the combined table silently breaks (mixed
+# dimensions/spaces, no error, just wrong results).
 
 # How much text per chunk, and how much consecutive chunks overlap —
 # overlap means a sentence split across a chunk boundary still appears
@@ -70,6 +74,13 @@ def main():
                     page_content=chunk,
                     metadata={
                         "source": args.source_name,
+                        # query.py prints/prompts with metadata['heading'] for
+                        # every retrieved chunk regardless of origin — PDF
+                        # chunks have no hand-written heading like the MOH216
+                        # ones do, so this is a stand-in that keeps that
+                        # lookup from KeyError-ing the moment a PDF chunk
+                        # gets retrieved.
+                        "heading": f"{args.source_name}, page {page_num}",
                         "page": page_num,
                         "priority": args.priority,
                     },

@@ -38,5 +38,8 @@
   {"id": "mental-health-1", "topic": "afya-ya-akili", "intent": "MENTAL_HEALTH_DISTRESS", "heading": "Ni Kawaida Kuhisi Hivi", "source": "Derived guidance, not page-specific in MOH216",
    "text": "Wanawake wengi hupitia mabadiliko ya hisia wakati wa ujauzito na baada ya kujifungua. Hii si udhaifu, ni sehemu ya mchakato wa mwili na maisha mapya. Kliniki hufanya uchunguzi wa afya ya akili katika ziara za baada ya kujifungua kama utaratibu wa kawaida."},
   {"id": "mental-health-2", "topic": "afya-ya-akili", "intent": "MENTAL_HEALTH_DISTRESS", "heading": "Dalili za Kuangalia", "source": "Derived guidance, not page-specific in MOH216",
-   "text": "Dalili za afya ya akili za kuangalia: huzuni au uchovu unaoendelea kwa zaidi ya wiki mbili, ugumu wa kumhusiana na mtoto. Kama una mawazo ya kujidhuru, tafuta msaada mara moja kutoka kwa mfanyakazi wa afya au mtu unayemwamini."}
+   "text": "Dalili za afya ya akili za kuangalia: huzuni au uchovu unaoendelea kwa zaidi ya wiki mbili, ugumu wa kumhusiana na mtoto. Kama una mawazo ya kujidhuru, tafuta msaada mara moja kutoka kwa mfanyakazi wa afya au mtu unayemwamini."},
+
+  {"id": "sex-during-pregnancy", "topic": "ngono-wakati-wa-ujauzito", "intent": "GENERAL_PRENATAL", "heading": "Ngono Wakati wa Ujauzito", "source": "Derived guidance, not page-specific in MOH216 — VERIFY against the actual MOH216 text or a midwife before relying on this in production",
+   "text": "Kwa ujauzito wa kawaida usio na matatizo, ngono kwa ujumla si hatari na haitamdhuru mtoto. Hata hivyo, mwambie mkunga au daktari wako mara moja kabla ya kuendelea na ngono kama una: kutokwa na damu ukeni, maji kutoka kabla ya wakati, maumivu, mimba ya mapacha, au kama umeambiwa una placenta iliyo chini (placenta previa) au hatari ya kuzaa kabla ya wakati. Kila ujauzito ni tofauti, hivyo ni muhimu kuuliza swali hili kwa mkunga wako mwenyewe wakati wa ziara ya kliniki."}
 ]
