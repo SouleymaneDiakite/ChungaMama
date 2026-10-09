@@ -19,6 +19,7 @@ Usage:
 import sys
 
 from rag_core import (
+    NOTHING_TO_TRANSLATE,
     build_system_prompt,
     detect_language,
     generate_stream,
@@ -48,7 +49,12 @@ def answer_question(store, question: str, history: dict) -> None:
     translation_target = requested_translation_language(
         question, history.get("last_language")
     )
-    if translation_target and history.get("context"):
+    if translation_target and not history.get("context"):
+        print(NOTHING_TO_TRANSLATE[translation_target])
+        print("(Tip: translation needs an earlier answer in the SAME run. "
+              "Use interactive mode: `python query.py` with no arguments.)")
+        return
+    if translation_target:
         system_prompt = build_system_prompt(
             history["context"], translation_target, history.get("risk_level", "low")
         )

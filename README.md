@@ -118,9 +118,10 @@ restart the server.
   (it also tells users to go to a clinic if urgent)
 
 **Not built yet**
-- Voice input (ASR) and voice output in the UI. The ASR model has been
-  chosen (SunflowerASR) but is not wired in. `rag_starter/tts.py` exists but
-  has no endpoint yet.
+- Voice output in the UI. `rag_starter/tts.py` exists but has no endpoint yet.
+- Voice input is wired (mic button → backend → `rag_starter/asr.py`, SunflowerASR)
+  but **untested on real audio**. The transcript goes into the text box for the
+  person to check before sending; it is not sent automatically.
 - Statistics/analytics view
 - Phone OTP login (email/password only)
 - Alembic migrations (`create_all()` for now)
@@ -173,6 +174,5 @@ works without it.
 1. Confirm GPU generation speed, then lower the backend timeout.
 2. Evaluation set and script (retrieval hit rate, risk accuracy).
 3. Add and verify more knowledge-base content.
-4. Wire in `transcribe()` (SunflowerASR), an audio endpoint, and mic/play
-   buttons in the UI.
+4. Test voice input on real Swahili recordings; add a play button (TTS).
 5. Better Swahili TTS; phone OTP; migrations; lock down registration roles.

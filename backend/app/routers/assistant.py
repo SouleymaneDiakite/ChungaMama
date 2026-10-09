@@ -1,6 +1,6 @@
 import uuid
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -93,3 +93,27 @@ async def chat(payload: AssistantRequest, db: Session = Depends(get_db)):
         db.commit()
 
     return result
+
+
+# Voice input: forwards the recorded audio to the assistant service's
+# /transcribe and returns {"text": ...}. It does NOT send the text on to /chat;
+# the frontend shows it in the input box so the person can correct a
+# mis-heard word before it's treated as their question.
+# The URL is derived from ASSISTANT_SERVICE_URL so there is still one setting.
+@router.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    url = settings.ASSISTANT_SERVICE_URL.rsplit("/chat", 1)[0] + "/transcribe"
+    data = await audio.read()
+    # Generous timeout: the first call loads the ASR model (and may download
+    # it), which can take minutes. Later calls are fast on GPU.
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            resp = await client.post(
+                url,
+                files={"audio": (audio.filename or "recording.wav", data,
+                                 audio.content_type or "audio/wav")},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Transcription service unavailable: {e}")
+    return resp.json()

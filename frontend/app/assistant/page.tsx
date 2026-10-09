@@ -2,11 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useLanguage, ui, pick } from "@/lib/i18n";
+import { startRecording, type Recorder } from "@/lib/recordWav";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1/assistant/chat";
+
+const TRANSCRIBE_URL = API_URL.replace(/\/chat$/, "/transcribe");
 
 // One id per browser tab, sent with every request. The assistant service keys
 // its conversation memory (last retrieved sources, last answer language, the
@@ -39,6 +42,49 @@ export default function AssistantPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const sessionId = useRef<string | null>(null);
+  const recorder = useRef<Recorder | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [micNote, setMicNote] = useState<string | null>(null);
+
+  // Voice input fills the text box instead of sending. Speech recognition
+  // makes mistakes, and for a health question a mis-heard word should be
+  // fixable by the person before it becomes the question.
+  async function toggleMic() {
+    if (transcribing) return;
+    setMicNote(null);
+
+    if (!recording) {
+      try {
+        recorder.current = await startRecording();
+        setRecording(true);
+      } catch (e) {
+        console.error("Microphone unavailable:", e);
+        setMicNote(pick(t.micDenied, lang));
+      }
+      return;
+    }
+
+    setRecording(false);
+    setTranscribing(true);
+    try {
+      const wav = await recorder.current!.stop();
+      const form = new FormData();
+      form.append("audio", wav, "recording.wav");
+      const res = await fetch(TRANSCRIBE_URL, { method: "POST", body: form });
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      const { text } = await res.json();
+      if (!text) throw new Error("Empty transcript");
+      setInput((prev) => (prev ? prev + " " : "") + text);
+      setMicNote(pick(t.checkTranscript, lang));
+    } catch (e) {
+      console.error("Transcription failed:", e);
+      setMicNote(pick(t.transcribeFailed, lang));
+    } finally {
+      recorder.current = null;
+      setTranscribing(false);
+    }
+  }
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
@@ -99,7 +145,24 @@ export default function AssistantPage() {
             <div className="self-start text-xs text-ink-soft italic">{pick(t.thinking, lang)}</div>
           )}
         </div>
+        {micNote && (
+          <div className="px-4 py-2 text-xs text-ink-soft border-t border-line bg-[#FBFAF7]">
+            {micNote}
+          </div>
+        )}
         <div className="flex gap-2 p-2.5 border-t border-line">
+          <button
+            onClick={toggleMic}
+            disabled={loading || transcribing}
+            aria-label={pick(recording ? t.micStop : t.micStart, lang)}
+            className={`rounded-full px-4 text-sm font-semibold border disabled:opacity-40 ${
+              recording ? "bg-red-600 text-white border-red-600" : "border-line text-blue-deep"
+            }`}
+          >
+            {transcribing
+              ? pick(t.transcribing, lang)
+              : pick(recording ? t.micStop : t.micStart, lang)}
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}

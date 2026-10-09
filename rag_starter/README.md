@@ -6,8 +6,9 @@ generates a grounded reply in the right language, and tells the backend
 whether to escalate.
 
 ```
-POST /chat   { messages: [{role, content}], session_id }
-          →  { intent, entities, risk_level, reply, escalate }
+POST /chat        { messages: [{role, content}], session_id }
+               →  { intent, entities, risk_level, reply, escalate }
+POST /transcribe  multipart file "audio" (16 kHz mono WAV)  →  { text }
 GET  /health
 ```
 
@@ -20,6 +21,7 @@ GET  /health
 | `query.py` | Command-line chat over the same core (one-shot or interactive) |
 | `ingest.py` | Embeds `moh216_chunks.json` into Postgres (pgvector). **Wipes and rebuilds the table** |
 | `ingest_pdf.py` | Ingests a MOH PDF (needs `pypdf`); adds heading/priority metadata |
+| `asr.py` | `transcribe(audio_path)` using SunflowerASR; loads lazily on first use. `python asr.py clip.wav` to test |
 | `tts.py` | `speak(text, language, output_path)` using gTTS; `python tts.py` writes sample MP3s |
 | `moh216_chunks.json` | 18 hand-curated Swahili chunks, each tagged with an intent and source |
 
@@ -103,10 +105,15 @@ cached afterwards). Confirm Ollama is using the GPU with `ollama ps`.
 - **Small-model drift:** replies can still add small details not in the
   sources despite the prompt rules.
 - **TTS:** gTTS needs internet and has a heavy accent in Swahili.
-- **No ASR yet.** Testing in Colab found `Sunbird/SunflowerASR-51-african-languages`
-  clearly better than Paza on Swahili (WER about 0.09–0.64 vs 4.4–7.0, with Paza
-  looping). It is gated on Hugging Face: accept the terms on the model page and
-  use a token. It is not wired into the service.
+- **ASR is untested on real audio.** `Sunbird/SunflowerASR-51-african-languages`
+  beat Paza clearly on Swahili in Colab (WER about 0.09–0.64 vs 4.4–7.0, with Paza
+  looping), but the model is gated on Hugging Face: accept the terms on the model
+  page and run `huggingface-cli login`. The first `/transcribe` call downloads the
+  weights and is slow. Transcripts go to the text box for the user to correct; they
+  are never sent as questions automatically.
+- **Translate** needs an earlier answer in the same session. With none (fresh
+  session, one-shot `query.py` run, or service restart) it says so instead of
+  searching.
 - `@app.on_event("startup")` is deprecated in newer FastAPI but works.
 
 ## Next steps
@@ -114,5 +121,5 @@ cached afterwards). Confirm Ollama is using the GPU with `ollama ps`.
 1. Run the headache/translation transcript on `llama3.1` and confirm GPU speed.
 2. Build an evaluation set (retrieval hit rate, risk accuracy).
 3. Add and review more source material.
-4. Add `transcribe()` (SunflowerASR) and a `POST /chat/audio` endpoint.
+4. Test `/transcribe` on real Swahili clips; consider fine-tuning (see notes in the chat).
 5. Replace gTTS with a better Swahili voice.
