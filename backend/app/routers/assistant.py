@@ -1,6 +1,6 @@
 import uuid
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -101,7 +101,7 @@ async def chat(payload: AssistantRequest, db: Session = Depends(get_db)):
 # mis-heard word before it's treated as their question.
 # The URL is derived from ASSISTANT_SERVICE_URL so there is still one setting.
 @router.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...)):
+async def transcribe(audio: UploadFile = File(...), language: str = Form("sw")):
     url = settings.ASSISTANT_SERVICE_URL.rsplit("/chat", 1)[0] + "/transcribe"
     data = await audio.read()
     # Generous timeout: the first call loads the ASR model (and may download
@@ -112,6 +112,7 @@ async def transcribe(audio: UploadFile = File(...)):
                 url,
                 files={"audio": (audio.filename or "recording.wav", data,
                                  audio.content_type or "audio/wav")},
+                data={"language": language},
             )
             resp.raise_for_status()
         except httpx.HTTPError as e:

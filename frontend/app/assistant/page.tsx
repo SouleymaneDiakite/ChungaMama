@@ -71,6 +71,7 @@ export default function AssistantPage() {
       const wav = await recorder.current!.stop();
       const form = new FormData();
       form.append("audio", wav, "recording.wav");
+      form.append("language", lang === "en" ? "en" : "sw");
       const res = await fetch(TRANSCRIBE_URL, { method: "POST", body: form });
       if (!res.ok) throw new Error(`Backend returned ${res.status}`);
       const { text } = await res.json();

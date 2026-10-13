@@ -15,16 +15,27 @@ Run with:
 Then point backend/.env's ASSISTANT_SERVICE_URL at
 http://localhost:9000/chat (its default already matches).
 """
-from fastapi import FastAPI
+import os
+import shutil
+import tempfile
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from rag_core import (
+    NO_INFO,
+    NOTHING_TO_TRANSLATE,
+    TRANSLATION_FAILED,
     build_system_prompt,
     detect_language,
+    ensure_language,
     generate_text,
     get_store,
     requested_translation_language,
     retrieve,
+    translate_reply,
+    with_urgent,
+    update_profile,
 )
 
 app = FastAPI(title="ChungaMama assistant service")
@@ -84,31 +95,90 @@ def chat(request: ChatRequest) -> ChatResponse:
     translation_target = requested_translation_language(
         question, history.get("last_language")
     )
-    if translation_target and history.get("context"):
-        prior_risk = history.get("classification", {}).get("risk_level", "low")
-        system_prompt = build_system_prompt(history["context"], translation_target, prior_risk)
-        reply = generate_text(system_prompt, history["question"])
-        history["last_language"] = translation_target
-        classification = history.get("classification", {
+    if translation_target:
+        replies = history.get("replies")
+        if not replies:
+            # Nothing to translate. Do NOT fall through to retrieval:
+            # searching for "translate to en" returns unrelated chunks and
+            # the model makes something up from them.
+            return ChatResponse(
+                intent="UNKNOWN", entities={}, risk_level="low", escalate=False,
+                reply=NOTHING_TO_TRANSLATE[translation_target],
+            )
+        prior = history.get("classification", {})
+        reply = translate_reply(
+            history, translation_target, generate_text, prior.get("risk_level", "low")
+        )
+        if reply is None:
+            reply = TRANSLATION_FAILED[translation_target]
+        else:
+            history["last_language"] = translation_target
+        classification = dict(history.get("classification", {
             "intent": "UNKNOWN", "entities": {}, "risk_level": "low", "escalate": False,
-        })
+        }))
+        # Keep the risk level, but never re-escalate: the original answer
+        # already created the escalation, and the backend creates a new
+        # Escalation row every time it sees escalate=true.
+        classification["escalate"] = False
+        if reply not in (TRANSLATION_FAILED["sw"], TRANSLATION_FAILED["en"]):
+            reply = with_urgent(reply, translation_target, classification["risk_level"])
         return ChatResponse(reply=reply, **classification)
 
     target_language = detect_language(question)
     retrieved = retrieve(_store, question, prior_question=history.get("question"))
     classification = retrieved["classification"]
 
-    system_prompt = build_system_prompt(
-        retrieved["context"], target_language, classification["risk_level"]
-    )
-    reply = generate_text(system_prompt, question)
+    # Remember what she told us (pregnant, how far along) so follow-ups like
+    # "it's been 4 hours" still know it, and tell the model, so sources about
+    # other situations (e.g. after birth) are not applied to her.
+    profile = update_profile(history.get("profile", {}), classification["entities"])
+
+    if not retrieved["covered"]:
+        # Nothing in the knowledge base is close enough. Say so (fixed text)
+        # instead of letting the model answer from the nearest unrelated chunk.
+        reply = NO_INFO[target_language]
+    else:
+        system_prompt = build_system_prompt(
+            retrieved["context"], target_language, classification["risk_level"], profile
+        )
+        # An English question can still come back in Swahili (the sources are
+        # Swahili); ensure_language() translates if so.
+        reply = ensure_language(generate_text(system_prompt, question), target_language)
 
     history["context"] = retrieved["context"]
     history["question"] = question
     history["last_language"] = target_language
     history["classification"] = classification
+    history["profile"] = profile
+    history["replies"] = {target_language: reply}  # stored WITHOUT the urgent line
 
-    return ChatResponse(reply=reply, **classification)
+    shown = reply if not retrieved["covered"] else with_urgent(
+        reply, target_language, classification["risk_level"])
+    return ChatResponse(reply=shown, **classification)
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+
+
+@app.post("/transcribe", response_model=TranscribeResponse)
+def transcribe_audio(audio: UploadFile = File(...), language: str = Form("sw")) -> TranscribeResponse:
+    """Audio in, text out. Deliberately does NOT answer the question: the
+    frontend puts the transcript in the input box so the person can check
+    and correct it before sending. For a medical assistant, a mis-heard word
+    silently turning into advice is the worse failure."""
+    from asr import transcribe  # lazy: keeps chat startup fast, see asr.py
+
+    suffix = os.path.splitext(audio.filename or "")[1] or ".wav"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(audio.file, tmp)
+        path = tmp.name
+    try:
+        return TranscribeResponse(text=transcribe(path, language))
+    except Exception as e:
+        raise HTTPException(500, f"Transcription failed: {e}")
+    finally:
+        os.remove(path)
 
 
 @app.get("/health")

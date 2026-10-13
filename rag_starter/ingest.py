@@ -6,8 +6,14 @@ pgvector so they can be searched later.
 Run once to set up, and again any time moh216_chunks.json changes.
 
 Usage:
-    python ingest.py
+    python ingest.py            # add/replace the MOH216 chunks; leaves PDFs and
+                                # anything else in the table untouched
+    python ingest.py --reset    # DROP the whole table first (this deletes PDF
+                                # chunks too). Needed after changing the
+                                # embedding model, because old vectors have
+                                # the wrong size/meaning.
 """
+import argparse
 import asyncio
 import json
 import os
@@ -25,7 +31,7 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres import PGEngine, PGVectorStore
 
-from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME, VECTOR_SIZE
+from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME, VECTOR_SIZE, stable_id
 
 load_dotenv()
 
@@ -41,6 +47,11 @@ load_dotenv()
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reset", action="store_true",
+                        help="drop the whole table first (also deletes PDF chunks)")
+    args = parser.parse_args()
+
     with open("moh216_chunks.json", encoding="utf-8") as f:
         chunks = json.load(f)
     print(f"Loaded {len(chunks)} chunks from moh216_chunks.json")
@@ -50,20 +61,21 @@ def main():
 
     engine = PGEngine.from_connection_string(url=DATABASE_URL)
 
-    # NOTE: this is NOT safe to call blindly if the table already exists —
-    # init_vectorstore_table does a plain CREATE TABLE under the hood, so a
-    # second run against an existing table raises DuplicateTableError
-    # rather than confirming the schema (an earlier version of this
-    # comment claimed otherwise; that was wrong). overwrite_existing=True
-    # drops and recreates it, which is exactly what you want here: you're
-    # switching embedding models (384-dim MiniLM -> 1024-dim bge-m3), so
-    # any rows from the old table are the wrong dimension anyway and
-    # cannot be reused regardless.
-    engine.init_vectorstore_table(
-        table_name=TABLE_NAME,
-        vector_size=VECTOR_SIZE,
-        overwrite_existing=True,
-    )
+    # Earlier versions dropped and recreated the table on EVERY run, which
+    # silently deleted anything ingest_pdf.py had stored. Now the table is
+    # only dropped with --reset; otherwise an existing table is kept and just
+    # this file's chunks are replaced (by stable id, below).
+    try:
+        engine.init_vectorstore_table(
+            table_name=TABLE_NAME,
+            vector_size=VECTOR_SIZE,
+            overwrite_existing=args.reset,
+        )
+    except Exception as e:
+        if "already exists" in str(e).lower() and not args.reset:
+            print(f"Table '{TABLE_NAME}' exists: keeping it (use --reset to rebuild from scratch).")
+        else:
+            raise
 
     store = PGVectorStore.create_sync(
         engine=engine,
@@ -71,6 +83,7 @@ def main():
         embedding_service=embeddings,
     )
 
+    ids = [stable_id(f"moh216:{chunk['id']}") for chunk in chunks]
     documents = [
         Document(
             page_content=chunk["text"],
@@ -85,7 +98,9 @@ def main():
         for chunk in chunks
     ]
 
-    store.add_documents(documents)
+    # Replace, don't duplicate: remove any earlier copy of these exact chunks.
+    store.delete(ids=ids)
+    store.add_documents(documents, ids=ids)
     print(f"Stored {len(documents)} chunks in the '{TABLE_NAME}' table.")
 
 

@@ -19,11 +19,13 @@ GET  /health
 | `rag_core.py` | Shared logic: constants, language detection, prompt building, retrieval, `classify()`, generation |
 | `service.py` | FastAPI app exposing `/chat` and `/health`; keeps per-session history |
 | `query.py` | Command-line chat over the same core (one-shot or interactive) |
-| `ingest.py` | Embeds `moh216_chunks.json` into Postgres (pgvector). **Wipes and rebuilds the table** |
-| `ingest_pdf.py` | Ingests a MOH PDF (needs `pypdf`); adds heading/priority metadata |
+| `ingest.py` | Embeds `moh216_chunks.json` into Postgres (pgvector). Replaces only its own chunks; `--reset` drops the whole table (also deletes PDF chunks) |
+| `ingest_pdf.py` | `python ingest_pdf.py file.pdf "Source name" --priority high`. Local file path, not a URL. Re-running the same name replaces its chunks. `priority` is stored but **not yet used in retrieval**; PDF chunks have no `intent`, so they never raise the risk level |
+| `mt.py` | `translate_text(text, "en"\|"sw")` using NLLB-200 (CPU). Used for translate requests and to fix wrong-language answers |
+| `calibrate.py` | Prints retrieval distances for in-scope vs unrelated questions and suggests `RETRIEVAL_MAX_DISTANCE` only if one separates them |
 | `asr.py` | `transcribe(audio_path)` using SunflowerASR; loads lazily on first use. `python asr.py clip.wav` to test |
 | `tts.py` | `speak(text, language, output_path)` using gTTS; `python tts.py` writes sample MP3s |
-| `moh216_chunks.json` | 18 hand-curated Swahili chunks, each tagged with an intent and source |
+| `moh216_chunks.json` | 20 hand-curated Swahili chunks, each tagged with an intent and source. The `sex`, `alcohol` and `medicines` chunks are flagged VERIFY |
 
 ## Design
 
@@ -98,7 +100,7 @@ cached afterwards). Confirm Ollama is using the GPU with `ollama ps`.
 
 - **Unverified GPU performance.** Earlier runs on CPU (llama3.2) were slow
   enough to time out. Re-test `llama3.1` on the GPU before trusting latency.
-- **Tiny corpus** (18 chunks). The `sex-during-pregnancy` chunk is flagged
+- **Tiny corpus** (20 chunks). The `sex-during-pregnancy` chunk is flagged
   for verification against the real handbook or a midwife.
 - **Session memory is in-process**, unbounded and lost on restart.
 - **Rule-based classifier** is a stand-in, not a trained model.

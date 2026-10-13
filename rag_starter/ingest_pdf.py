@@ -21,7 +21,7 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres import PGEngine, PGVectorStore
 
-from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME
+from rag_core import DATABASE_URL, EMBEDDING_MODEL, TABLE_NAME, stable_id
 
 load_dotenv()
 
@@ -64,11 +64,15 @@ def main():
     print(f"{len(reader.pages)} pages found. Extracting and chunking...")
 
     documents = []
+    ids = []
     for page_num, page in enumerate(reader.pages, start=1):
         text = page.extract_text() or ""
         if not text.strip():
             continue  # skip blank/image-only pages
-        for chunk in chunk_text(text, CHUNK_SIZE, CHUNK_OVERLAP):
+        for chunk_num, chunk in enumerate(chunk_text(text, CHUNK_SIZE, CHUNK_OVERLAP)):
+            # Stable id: re-ingesting the same PDF under the same name
+            # replaces its chunks instead of piling up duplicates.
+            ids.append(stable_id(f"pdf:{args.source_name}:{page_num}:{chunk_num}"))
             documents.append(
                 Document(
                     page_content=chunk,
@@ -101,10 +105,11 @@ def main():
 
     # Large PDFs: add in batches so one failure doesn't lose everything,
     # and so you get progress feedback rather than a long silent wait.
+    store.delete(ids=ids)
     batch_size = 100
     for i in range(0, len(documents), batch_size):
         batch = documents[i:i + batch_size]
-        store.add_documents(batch)
+        store.add_documents(batch, ids=ids[i:i + batch_size])
         print(f"  Stored {min(i + batch_size, len(documents))}/{len(documents)} chunks...")
 
     print(f"Done. '{args.source_name}' is now searchable alongside MOH216.")

@@ -12,3 +12,5 @@ python-multipart>=0.0.9
 transformers>=4.40
 accelerate>=0.30
 soundfile>=0.12
+sentencepiece>=0.2
+ffmpeg>=1.4
